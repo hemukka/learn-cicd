@@ -1,30 +1,44 @@
 package auth
 
 import (
+	"fmt"
 	"net/http"
-	"reflect"
+	"strings"
 	"testing"
 )
 
-func TestAuth(t *testing.T) {
+func TestGetAPIKey(t *testing.T) {
 	tests := []struct {
-		input   http.Header
+		key     string
+		value   string
 		want    string
-		wantErr bool
+		wantErr string
 	}{
-		{input: http.Header{}, want: "", wantErr: true},
-		{input: http.Header{"Authorization": []string{"ApiKey 123456"}}, want: "123456", wantErr: false},
-		{input: http.Header{"Authorization": []string{"ApiKey"}}, want: "", wantErr: true},
-		{input: http.Header{"Authorization": []string{"apikey 123456"}}, want: "", wantErr: true},
+		{key: "", want: "", wantErr: "no authorization header"},
+		{key: "Author", want: "", wantErr: "no authorization header"},
+		{key: "Authorization", value: "key", want: "", wantErr: "malformed authorization header"},
+		{key: "Authorization", value: "Key 123456", want: "", wantErr: "malformed authorization header"},
+		{key: "Authorization", value: "ApiKey 123456", want: "123456", wantErr: "not expecting an error"},
 	}
 
-	for _, tc := range tests {
-		got, err := GetAPIKey(tc.input)
-		if !reflect.DeepEqual(tc.want, got) {
-			t.Fatalf("expected: %v, got: %v", tc.want, got)
-		}
-		if tc.wantErr && err == nil {
-			t.Fatalf("expected non-nil error, got nil error")
-		}
+	for i, tc := range tests {
+		t.Run(fmt.Sprintf("TestGetAPIKey Case #%v:", i), func(t *testing.T) {
+			header := http.Header{}
+			header.Add(tc.key, tc.value)
+
+			output, err := GetAPIKey(header)
+			if err != nil {
+				if strings.Contains(err.Error(), tc.wantErr) {
+					return
+				}
+				t.Errorf("Unexpected: TestGetAPIKey:%v\n", err)
+				return
+			}
+
+			if output != tc.want {
+				t.Errorf("Unexpected: TestGetAPIKey:%s", output)
+				return
+			}
+		})
 	}
 }
